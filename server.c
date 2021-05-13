@@ -17,6 +17,9 @@
 static _Atomic unsigned int cli_count = 0;
 static int uid = 10;
 
+//gcc -Wall -g3 -fsanitize=address -pthread serer.c -o server
+//telnet localhost 4444
+
 //Client Structure - Para poder diferenciar a los clientes
 typedef struct{
   struct sockaddr_in address;
