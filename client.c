@@ -1,140 +1,192 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <netdb.h>
+#include <string.h>
+#include <errno.h>
 #include <pthread.h>
+#include "helper.h"
 
-#define LENGTH 2048
+#define MAXLINE 1024 /* max line size */
 
-// Global variables
-volatile sig_atomic_t flag = 0;
-int sockfd = 0;
-char name[32];
-
-void str_overwrite_stdout() {
-  printf("%s", "> ");
-  fflush(stdout);
+char prompt[]="Chatroom> ";
+int flag=0;
+/*
+get the usage of the script
+*/
+void usage(){
+  printf("-h  print help\n");
+  printf("-a  IP address of the server[Required]\n");
+  printf("-p  port number of the server[Required]\n");
+  printf("-u  enter your username[Required]\n");
 }
 
-void str_trim_lf (char* arr, int length) {
-  int i;
-  for (i = 0; i < length; i++) { // trim \n
-    if (arr[i] == '\n') {
-      arr[i] = '\0';
-      break;
+
+/*
+* @brief-: connects the client to ther sever
+* NOTE-: THE function traverses the list to find appropriate socket Connection [ is robust]
+* @port-: port number
+* @hostname-: ip address of the server
+* @return -: connection file descriptor
+*/
+
+int connection(char* hostname, char* port){
+  int clientfd,rc;
+  struct addrinfo hints, *listp, *p;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM; /* Connections only */
+  hints.ai_flags |=AI_ADDRCONFIG;
+  hints.ai_flags |= AI_NUMERICSERV; //using fixed port number
+
+
+  	if ((rc = getaddrinfo(hostname, port, &hints, &listp)) != 0) {
+    	fprintf(stderr,"invalid hostname or port number\n");
+    	return -1;
+	}
+
+ 	for (p = listp; p; p = p->ai_next) {
+        /* Create a socket descriptor */
+        clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (clientfd < 0) {
+            continue; /* Socket failed, try the next */
+        }
+
+        /* Connect to the server */
+        if (connect(clientfd, p->ai_addr, p->ai_addrlen) != -1) {
+            break; /* Success */
+        }
+
+        /* Connect failed, try another */
+        if (close(clientfd) < 0) {
+            fprintf(stderr, "open_clientfd: close failed: %s\n",
+                    strerror(errno));
+            return -1;
+        }
     }
-  }
-}
 
-void catch_ctrl_c_and_exit(int sig) {
-    flag = 1;
-}
-
-void send_msg_handler() {
-  char message[LENGTH] = {};
-	char buffer[LENGTH + 32] = {};
-
-  while(1) {
-  	str_overwrite_stdout();
-    fgets(message, LENGTH, stdin);
-    str_trim_lf(message, LENGTH);
-
-    if (strcmp(message, "exit") == 0) {
-			break;
-    } else {
-      sprintf(buffer, "%s: %s\n", name, message);
-      send(sockfd, buffer, strlen(buffer), 0);
+    /* Clean up */
+    freeaddrinfo(listp);
+    if (!p) { /* All connects failed */
+        return -1;
     }
-
-		bzero(message, LENGTH);
-    bzero(buffer, LENGTH + 32);
-  }
-  catch_ctrl_c_and_exit(2);
+    else { /* The last connect succeeded */
+        return clientfd;
+    }
 }
 
-void recv_msg_handler() {
-	char message[LENGTH] = {};
-  while (1) {
-		int receive = recv(sockfd, message, LENGTH, 0);
-    if (receive > 0) {
-      printf("%s", message);
-      str_overwrite_stdout();
-    } else if (receive == 0) {
-			break;
-    } else {
-			// -1
-		}
-		memset(message, 0, sizeof(message));
-  }
+// read server response
+void reader(void* var){
+  	char buf[MAXLINE];
+  	rio_t rio;
+  	int status;
+  	int connID=(int)var;
+  	// initialise rio data structure
+  	rio_readinitb(&rio, connID);
+  	while(1){
+     	while((status=rio_readlineb(&rio,buf,MAXLINE)) >0){
+          	//error
+          	if(status == -1)
+            	exit(1);
+          	if(!strcmp(buf,"\r\n")){
+              	break;
+            }
+         	// exit from the server
+          	if (!strcmp(buf,"exit")){
+              	close(connID);
+              	exit(0);
+            }
+          	if (!strcmp(buf,"start\n")){
+               	printf("\n");
+            }
+
+          	else
+            	printf("%s",buf);
+        }
+      	// print the Chatroom prompt
+      	printf("%s",prompt);
+      	fflush(stdout);
+    }
 }
 
 int main(int argc, char **argv){
-	if(argc != 2){
-		printf("Usage: %s <port>\n", argv[0]);
-		return EXIT_FAILURE;
+
+
+  	char *address=NULL,*port=NULL,*username=NULL;
+  	char cmd[MAXLINE];
+  	char c;
+  	pthread_t tid;
+  	//parsing command line arguments
+  	while((c = getopt(argc, argv, "hu:a:p:u:")) != EOF){
+    	switch(c){
+    	  	// print help
+    	  	case 'h':
+    	     	usage();
+    	     	exit(1);
+    	     	break;
+    	  	// get server address
+    	  	case 'a':
+    	     	address=optarg;
+    	     	break;
+    	  	// get server port number
+    	  	case 'p':
+    	     	port=optarg;
+    	     	break;
+    	  	// get the username
+    	  	case 'u':
+    	     	username=optarg;
+    	     	break;
+
+    	  	default:
+    	      	usage();
+    	      	exit(1);
+
+    	}
 	}
 
-	char *ip = "127.0.0.1";
-	int port = atoi(argv[1]);
+   if(optind  == 1 || port == NULL || address == NULL || username == NULL){
+    printf("Invalid usage\n");
+    usage();
+    exit(1); }
 
-	signal(SIGINT, catch_ctrl_c_and_exit);
-
-	printf("Please enter your name: ");
-  fgets(name, 32, stdin);
-  str_trim_lf(name, strlen(name));
-
-
-	if (strlen(name) > 32 || strlen(name) < 2){
-		printf("Name must be less than 30 and more than 2 characters.\n");
-		return EXIT_FAILURE;
-	}
-
-	struct sockaddr_in server_addr;
-
-	/* Socket settings */
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = inet_addr(ip);
-  server_addr.sin_port = htons(port);
-
-
-  // Connect to Server
-  int err = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
-  if (err == -1) {
-		printf("ERROR: connect\n");
-		return EXIT_FAILURE;
-	}
-
-	// Send name
-	send(sockfd, name, 32, 0);
-
-	printf("=== WELCOME TO THE CHATROOM ===\n");
-
-	pthread_t send_msg_thread;
-  if(pthread_create(&send_msg_thread, NULL, (void *) send_msg_handler, NULL) != 0){
-		printf("ERROR: pthread\n");
-    return EXIT_FAILURE;
-	}
-
-	pthread_t recv_msg_thread;
-  if(pthread_create(&recv_msg_thread, NULL, (void *) recv_msg_handler, NULL) != 0){
-		printf("ERROR: pthread\n");
-		return EXIT_FAILURE;
-	}
-
-	while (1){
-		if(flag){
-			printf("\nBye\n");
-			break;
+    int connID=connection(address,port);
+    if(connID == -1){
+       	printf("Couldn't connect to the server\n");
+       	exit(1);
     }
-	}
+    // add a newline
+    sprintf(username,"%s\n",username);
 
-	close(sockfd);
+    // send the server , your username
+    if(rio_writen(connID,username,strlen(username)) == -1){
+    	perror("not able to send the data");
+    	close(connID);
+    	exit(1);
+    }
 
-	return EXIT_SUCCESS;
+    // a thread for reading server response
+    pthread_create(&tid,NULL,reader, (void*)connID);
+    // print the Chatroom prompt
+    printf("%s",prompt);
+    while(1){
+      	// read the command
+      	if ((fgets(cmd, MAXLINE, stdin) == NULL) && ferror(stdin)) {
+            perror("fgets error");
+            close(connID);
+            exit(1);
+        }
+
+
+      	// send the request to the server
+      	if (rio_writen(connID,cmd,strlen(cmd)) == -1){
+          	perror("not able to send the data");
+          	close(connID);
+          	exit(1);
+        }
+
+    }
+
 }
