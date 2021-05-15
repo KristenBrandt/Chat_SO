@@ -36,6 +36,42 @@ void catch_ctrl_c_and_exit(){
 	flag = 1;
 }
 
+void recv_msg_handler(){
+  char message[BUFFER_SZ] = {};
+  while(1){
+    int receive = recv(sockfd, message, BUFFER_SZ, 0);
+
+    if(receive > 0){
+      printf("%s ", message);
+      str_overwrite_stdout();
+    } else if (receive == 0){
+      break;
+    }
+    bzero(message, BUFFER_SZ);
+  }
+}
+
+void send_msg_handler(){
+  char buff_out[BUFFER_SZ] = {};
+  char message[BUFFER_SZ + NAME_LEN] = {};
+
+  while(1){
+    str_overwrite_stdout();
+    fgets(buff_out, BUFFER_SZ, stdin)
+    str_trim_lf(buff_out, BUFFER_SZ);
+
+    if(strcmp(buff_out, "exit") == 0){
+      break;
+    } else {
+      sprintf(message, "%s: %s\n", name, buff_out);
+      send(sockfd, message, strlen(message), 0);
+    }
+    bzero(buff_out, BUFFER_SZ);
+    bzero(message, BUFFER_SZ + NAME_LEN);
+  }
+  catch_ctrl_c_and_exit(2);
+}
+
 int main(int argc, char **argv){
   if (argc != 2){
     printf("Usage: %s <port>\n", argv[0]);
@@ -74,6 +110,26 @@ int main(int argc, char **argv){
   send(sockfd, name, NAME_LEN, 0);
   
   printf("=== BIENVENIDO A EL CHATROOM DE BLOCK Y KRISTEN ===\n");
+  pthread_t send_msg_thread;
+  if(pthread_create(&send_msg_thread, NULL, (void*)send_msg_handler, NULL) !=0){
+    printf("ERROR: pthread\n");
+    return EXIT_FAILURE;
+  }
 
+   pthread_t recv_msg_thread;
+  if(pthread_create(&recv_msg_thread, NULL, (void*)recv_msg_handler, NULL) !=0){
+    printf("ERROR: pthread\n");
+    return EXIT_FAILURE;
+  }
+
+  while(1){
+    if(flag){
+      printf("\nBye\n");
+      break;
+    }
+  }
+
+  close(sockfd);
+  
   return EXIT_SUCCESS;
 }
