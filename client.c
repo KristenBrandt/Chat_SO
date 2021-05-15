@@ -42,7 +42,7 @@ int main(int argc, char **argv){
     return EXIT_FAILURE;
   }
 
-  char *ip = "192.168.1.6";
+  char *ip = "10.0.2.15";
   int port = atoi(argv[1]);
 
   signal(SIGINT, catch_ctrl_c_and_exit);
@@ -66,7 +66,7 @@ int main(int argc, char **argv){
   //Conect to the server
   int err = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
   if(err == -1){
-    printf("ERROR: connect\n");
+    perror("ERROR: connect\n");
     return EXIT_FAILURE;
   }
 

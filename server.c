@@ -153,7 +153,7 @@ int main(int argc, char **argv){
     printf("Usage: %s <port>\n", argv[0]);
     return EXIT_FAILURE;
   }
-  char *ip = "192.168.1.6";
+  char *ip = "10.0.2.15";
   int port = atoi(argv[1]);
 
   int option = 1;
