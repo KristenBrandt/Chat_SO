@@ -72,7 +72,8 @@ int main(int argc, char **argv){
 
   //Send the name
   send(sockfd, name, NAME_LEN, 0);
-  printf("=== Bienvenido al CHATROOM====\n");
+  
+  printf("=== BIENVENIDO A EL CHATROOM DE BLOCK Y KRISTEN ===\n");
 
   return EXIT_SUCCESS;
 }
