@@ -57,7 +57,7 @@ void send_msg_handler(){
 
   while(1){
     str_overwrite_stdout();
-    fgets(buff_out, BUFFER_SZ, stdin)
+    fgets(buff_out, BUFFER_SZ, stdin);
     str_trim_lf(buff_out, BUFFER_SZ);
 
     if(strcmp(buff_out, "exit") == 0){
@@ -66,8 +66,8 @@ void send_msg_handler(){
       sprintf(message, "%s: %s\n", name, buff_out);
       send(sockfd, message, strlen(message), 0);
     }
-    bzero(buff_out, BUFFER_SZ);
-    bzero(message, BUFFER_SZ + NAME_LEN);
+  bzero(buff_out, BUFFER_SZ);
+  bzero(message, BUFFER_SZ + NAME_LEN);
   }
   catch_ctrl_c_and_exit(2);
 }
