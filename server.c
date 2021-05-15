@@ -179,7 +179,7 @@ int main(int argc, char **argv){
 
   //Bind
   if(bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))<0){
-    printf("ERROR: bind\n");
+    perror("ERROR: bind\n");
     return EXIT_FAILURE;
   }
 
