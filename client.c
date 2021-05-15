@@ -52,11 +52,11 @@ int main(int argc, char **argv){
   str_trim_lf(name, strlen(name));
 
   if(strlen(name) > NAME_LEN - 1 || strlen(name) < 2){
-    printf("Enter nsme correctly\n");
+    printf("Enter name correctly\n");
     return EXIT_FAILURE;
   }
 
-  struct sosckaddr_in server_addr;
+  struct sockaddr_in server_addr;
   //Socket Settings
   sockfd = socket(AF_INET , SOCK_STREAM, 0);
   server_addr.sin_family = AF_INET;
