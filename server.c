@@ -114,7 +114,6 @@ string obtenerEstado(int state){
   return "INACTIVO";
 }
 
-/* de aqui para abajo ya esta bien */
 /* manejar todoas las comunicaciones con el cliente */
 void *handle_client(void *arg){
   char buff_out[BUFFER_SZ];
@@ -132,11 +131,7 @@ void *handle_client(void *arg){
   strint what(name);
   Payload registrar_proto_payload;
   registrar_proto_payload.ParseFromString(name);
-  /* revisar si ingreso un nombre de entre 2-32*/
-  if(registrar_proto_payload.sender().lenght()<2 || registrar_proto_payload.sender().lenght()>= NAME_LEN-1){
-    printf("Ingrese el nombre correctamente\n");
-    leave_flag = 1;
-  }
+  
   /*revisar si el usuario ya existe */
   else if (get_client_index(registrar_proto_payload.sender() >= 0 )){
     printf("Este usuario ya existe, no se puede usar");
