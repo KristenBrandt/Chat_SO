@@ -13,9 +13,9 @@
 #define MAX_CLIENTS 100
 #define BUFFER_SZ 2048
 #define NAME_LEN 32
-#define ACTIVE 0
-#define OCCUPIED 1
-#define INNACTIVE 2
+#define ACTIVO 0
+#define OCUPADO 1
+#define INACTIVO 2
 
 
 static _Atomic unsigned int cli_count = 0;
@@ -50,7 +50,7 @@ void str_trim_lf(char* arr, int lenght){
     }
   }
 }
-
+/* agregar clientes al queue */
 void queue_add(client_t *cl){
   pthread_mutex_lock(&clients_mutex);
 
@@ -63,6 +63,7 @@ void queue_add(client_t *cl){
   pthread_mutex_unlock(&clients_mutex);
 }
 
+/* remover clientes del queue */
 void queue_remove(int uid){
   pthread_mutex_lock(&clients_mutex);
 
@@ -85,6 +86,7 @@ void print_ip_addr(struct sockaddr_in addr) {
   (addr.sin_addr.s_addr & 0xff0000) >> 16,
   (addr.sin_addr.s_addr & 0xff000000) >> 24);
 
+/* mandar mensaje a todos los clientes exepto el que lo manda */
 }void send_message(char *s, int uid){
   pthread_mutex_lock(&clients_mutex);
 
@@ -101,15 +103,19 @@ void print_ip_addr(struct sockaddr_in addr) {
   pthread_mutex_unlock(&clients_mutex);
 }
 
+/* obtener el estado del cliente*/
+/* los nombres de los estados son asi por el protocolo */
 string obtenerEstado(int state){
   if (state == 0){
-    return "ACTIVE";
+    return "ACTIVO";
   } else if (state == 1){
-    return "OCCUPIED";
+    return "OCUPADO";
   }
-  return "INNACTIVE";
+  return "INACTIVO";
 }
 
+/* de aqui para abajo ya esta bien */
+/* manejar todoas las comunicaciones con el cliente */
 void *handle_client(void *arg){
   char buff_out[BUFFER_SZ];
   char name[NAME_LEN];
@@ -122,14 +128,29 @@ void *handle_client(void *arg){
   if(recv(cli -> sockfd, name, NAME_LEN, 0) <= 0 || strlen(name)< 2|| strlen(name)>= NAME_LEN-1){
     printf("Ingrese el nombre correctamente\n");
     leave_flag = 1;
-  } else{
-    strcpy(cli -> name, name);
+  }
+  strint what(name);
+  Payload registrar_proto_payload;
+  registrar_proto_payload.ParseFromString(name);
+  /* revisar si ingreso un nombre de entre 2-32*/
+  if(registrar_proto_payload.sender().lenght()<2 || registrar_proto_payload.sender().lenght()>= NAME_LEN-1){
+    printf("Ingrese el nombre correctamente\n");
+    leave_flag = 1;
+  }
+  /*revisar si el usuario ya existe */
+  else if (get_client_index(registrar_proto_payload.sender() >= 0 )){
+    printf("Este usuario ya existe, no se puede usar");
+    leave_flag =1;
+  }
+  else{
+    strcpy(cli -> name, registrar_proto_payload.sender().c_str());
     sprintf(buff_out, "%s se ha unido\n", cli->name);
     printf("%s",buff_out);
     send_message(buff_out, cli-> uid);
   }
   bzero(buff_out, BUFFER_SZ);
-
+  int registro = get_client_index(register_payload.sender());
+  printf("Usuario registrado exitosamente: %d\n", registro );
   while(1){
     if(leave_flag){
       break;
