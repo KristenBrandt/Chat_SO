@@ -13,6 +13,10 @@
 #define MAX_CLIENTS 100
 #define BUFFER_SZ 2048
 #define NAME_LEN 32
+#define ACTIVE 0
+#define OCCUPIED 1
+#define INNACTIVE 2
+
 
 static _Atomic unsigned int cli_count = 0;
 static int uid = 10;
@@ -26,6 +30,7 @@ typedef struct{
   int sockfd;
   int uid;
   char name[NAME_LEN];
+  int status;
 }client_t;
 
 client_t *clients[MAX_CLIENTS];
@@ -94,6 +99,15 @@ void print_ip_addr(struct sockaddr_in addr) {
       }
   }
   pthread_mutex_unlock(&clients_mutex);
+}
+
+string obtenerEstado(int state){
+  if (state == 0){
+    return "ACTIVE";
+  } else if (state == 1){
+    return "OCCUPIED";
+  }
+  return "INNACTIVE";
 }
 
 void *handle_client(void *arg){
@@ -173,7 +187,7 @@ int main(int argc, char **argv){
   signal(SIGPIPE, SIG_IGN);
 
   if(setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), (char*)&option, sizeof(option))<0){
-    printf("ERROR: setsockopt\n");
+    perror("ERROR: setsockopt\n");
     return EXIT_FAILURE;
   }
 
@@ -185,7 +199,7 @@ int main(int argc, char **argv){
 
   //listen
   if(listen(listenfd,10)<0){
-    printf("ERROR: listen\n");
+    perror("ERROR: listen\n");
     return EXIT_FAILURE;
   }
 
@@ -207,6 +221,7 @@ int main(int argc, char **argv){
     cli -> address = cli_addr;
     cli -> sockfd = connfd;
     cli -> uid = uid ++;
+    cli -> status = ACTIVE;
 
     //add client to queue
     queue_add(cli);
