@@ -1,9 +1,0 @@
-syntax = "proto2";
-
-message Person {
-  optional string name = 1;
-  optional string message = 2;
-  optional string flag = 3;
-  optional string extra = 4;
-
-}
