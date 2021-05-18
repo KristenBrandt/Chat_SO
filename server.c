@@ -10,12 +10,12 @@
 #include <sys/types.h>
 #include <signal.h>
 
+#include "payload.pb.h"
+
 #define MAX_CLIENTS 100
 #define BUFFER_SZ 2048
 #define NAME_LEN 32
 #define ACTIVO 0
-#define OCUPADO 1
-#define INACTIVO 2
 
 
 static _Atomic unsigned int cli_count = 0;
@@ -103,16 +103,7 @@ void print_ip_addr(struct sockaddr_in addr) {
   pthread_mutex_unlock(&clients_mutex);
 }
 
-/* obtener el estado del cliente*/
-/* los nombres de los estados son asi por el protocolo */
-string obtenerEstado(int state){
-  if (state == 0){
-    return "ACTIVO";
-  } else if (state == 1){
-    return "OCUPADO";
-  }
-  return "INACTIVO";
-}
+
 
 /* manejar todoas las comunicaciones con el cliente */
 void *handle_client(void *arg){
@@ -131,7 +122,7 @@ void *handle_client(void *arg){
   strint what(name);
   Payload registrar_proto_payload;
   registrar_proto_payload.ParseFromString(name);
-  
+
   /*revisar si el usuario ya existe */
   else if (get_client_index(registrar_proto_payload.sender() >= 0 )){
     printf("Este usuario ya existe, no se puede usar");
@@ -237,7 +228,7 @@ int main(int argc, char **argv){
     cli -> address = cli_addr;
     cli -> sockfd = connfd;
     cli -> uid = uid ++;
-    cli -> status = ACTIVE;
+    cli -> status = ACTIVO;
 
     //add client to queue
     queue_add(cli);
