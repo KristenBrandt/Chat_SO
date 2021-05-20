@@ -9,20 +9,14 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <signal.h>
-
-#include "payload.pb.h"
+#include <atomic>
 
 #define MAX_CLIENTS 100
 #define BUFFER_SZ 2048
 #define NAME_LEN 32
-#define ACTIVO 0
-
 
 static _Atomic unsigned int cli_count = 0;
 static int uid = 10;
-
-//gcc -Wall -g3 -fsanitize=address -pthread serer.c -o server
-//telnet localhost 4444
 
 //Client Structure - Para poder diferenciar a los clientes
 typedef struct{
@@ -30,7 +24,6 @@ typedef struct{
   int sockfd;
   int uid;
   char name[NAME_LEN];
-  int status;
 }client_t;
 
 client_t *clients[MAX_CLIENTS];
@@ -50,7 +43,7 @@ void str_trim_lf(char* arr, int lenght){
     }
   }
 }
-/* agregar clientes al queue */
+
 void queue_add(client_t *cl){
   pthread_mutex_lock(&clients_mutex);
 
@@ -63,7 +56,6 @@ void queue_add(client_t *cl){
   pthread_mutex_unlock(&clients_mutex);
 }
 
-/* remover clientes del queue */
 void queue_remove(int uid){
   pthread_mutex_lock(&clients_mutex);
 
@@ -86,7 +78,6 @@ void print_ip_addr(struct sockaddr_in addr) {
   (addr.sin_addr.s_addr & 0xff0000) >> 16,
   (addr.sin_addr.s_addr & 0xff000000) >> 24);
 
-/* mandar mensaje a todos los clientes exepto el que lo manda */
 }void send_message(char *s, int uid){
   pthread_mutex_lock(&clients_mutex);
 
@@ -103,9 +94,6 @@ void print_ip_addr(struct sockaddr_in addr) {
   pthread_mutex_unlock(&clients_mutex);
 }
 
-
-
-/* manejar todoas las comunicaciones con el cliente */
 void *handle_client(void *arg){
   char buff_out[BUFFER_SZ];
   char name[NAME_LEN];
@@ -118,25 +106,14 @@ void *handle_client(void *arg){
   if(recv(cli -> sockfd, name, NAME_LEN, 0) <= 0 || strlen(name)< 2|| strlen(name)>= NAME_LEN-1){
     printf("Ingrese el nombre correctamente\n");
     leave_flag = 1;
-  }
-  strint what(name);
-  Payload registrar_proto_payload;
-  registrar_proto_payload.ParseFromString(name);
-
-  /*revisar si el usuario ya existe */
-  else if (get_client_index(registrar_proto_payload.sender() >= 0 )){
-    printf("Este usuario ya existe, no se puede usar");
-    leave_flag =1;
-  }
-  else{
-    strcpy(cli -> name, registrar_proto_payload.sender().c_str());
+  } else{
+    strcpy(cli -> name, name);
     sprintf(buff_out, "%s se ha unido\n", cli->name);
     printf("%s",buff_out);
     send_message(buff_out, cli-> uid);
   }
   bzero(buff_out, BUFFER_SZ);
-  int registro = get_client_index(register_payload.sender());
-  printf("Usuario registrado exitosamente: %d\n", registro );
+
   while(1){
     if(leave_flag){
       break;
@@ -193,7 +170,7 @@ int main(int argc, char **argv){
   //Signals - software generated interrupts
   signal(SIGPIPE, SIG_IGN);
 
-  if(setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), (char*)&option, sizeof(option))<0){
+  if(setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT, SO_REUSEADDR), (char*)&option, sizeof(option))<0){
     perror("ERROR: setsockopt\n");
     return EXIT_FAILURE;
   }
@@ -228,7 +205,6 @@ int main(int argc, char **argv){
     cli -> address = cli_addr;
     cli -> sockfd = connfd;
     cli -> uid = uid ++;
-    cli -> status = ACTIVO;
 
     //add client to queue
     queue_add(cli);
